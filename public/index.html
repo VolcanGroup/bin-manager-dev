@@ -1,0 +1,1142 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Portal de Administración de BINes - Control de asignación y disponibilidad">
+  <title>Bin Manager</title>
+  <link rel="stylesheet" href="styles.css?v=4">
+  <link rel="icon"
+    href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏦</text></svg>">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            surface: 'var(--bg-surface)',
+            'surface-hover': 'var(--bg-hover)',
+            canvas: 'var(--bg-canvas)',
+            divider: 'var(--border-divider)',
+            'content-primary': '#0f172a',
+            'content-secondary': '#475569',
+            'content-muted': '#94a3b8'
+          }
+        }
+      }
+    }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <style>
+      /* Scrollbar personalizado para la tabla Tailwind */
+      #pageDashboard ::-webkit-scrollbar { width: 6px; height: 6px; }
+      #pageDashboard ::-webkit-scrollbar-track { background: #f1f1f1; }
+      #pageDashboard ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+      #pageDashboard ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+      .glass-card { background: var(--bg-surface); border: 1px solid var(--border-divider); border-radius: 1rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05); }
+  </style>
+</head>
+<body class="bg-canvas dark:bg-[#030712] text-content-primary dark:text-slate-200 transition-colors">
+  <!-- Toast Notifications -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- ===== Login Page ===== -->
+  <div id="loginPage" class="login-container">
+    <div class="login-background"></div>
+    <div class="login-card">
+      <div class="login-header">
+        <div class="login-logo fade-in-volcan">
+          <img src="Imagenes/Logo_Volcaìn_sin_fondo.png" alt="Volcán" class="login-img-logo">
+        </div>
+        <div class="login-context fade-in-context">
+          <h2>Accediendo a BIN Manager</h2>
+          <p>Inicia sesión para continuar</p>
+        </div>
+      </div>
+      <form id="loginForm" class="login-form">
+        <div class="form-group">
+          <label for="loginUsername" class="form-label">USUARIO</label>
+          <input title="login sername" type="text" id="loginUsername" placeholder="admin" autocomplete="username" required class="form-input">
+        </div>
+        <div class="form-group">
+          <label for="loginPassword" class="form-label">CONTRASEÑA</label>
+          <input title="login assword" type="password" id="loginPassword" placeholder="Ingresa tu contraseña" autocomplete="current-password" required class="form-input">
+        </div>
+        <div id="loginError" class="login-error"></div>
+        <button type="submit" class="btn btn-primary login-btn">Iniciar Sesión</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===== App ===== -->
+  <div id="appPage" class="app-container hidden">
+    <!-- Sidebar -->
+    <aside id="sidebar" class="sidebar bg-surface border-r border-divider">
+      <div class="sidebar-header border-b border-divider">
+        <div class="brand-container">
+          <div class="logo-volcan">
+            <img src="Imagenes/Logo_Volcaìn_sin_fondo.png" alt="Volcán" class="logo-img-contained">
+          </div>
+        </div>
+      </div>
+      <div class="sidebar-divider"></div>
+      <nav class="sidebar-nav">
+        <div class="nav-section-title">Principal</div>
+        <div data-page="dashboard" data-label="Dashboard" id="navDashboard" class="nav-item active">
+          <span class="nav-text">Dashboard</span>
+        </div>
+        <div data-page="bins" data-label="BINes" id="navBins" class="nav-item">
+          <span class="nav-text">BINes</span>
+        </div>
+
+        <!-- Requester section -->
+        <div data-role="requester" class="nav-section-title inline-style-1">Solicitudes</div>
+        <div data-role="requester" data-page="request" data-label="Solicitar BIN" id="navRequest" class="nav-item inline-style-1">
+          <span class="nav-text">Solicitar BIN</span>
+        </div>
+        <div data-role="requester" data-page="myRequests" data-label="Mis Solicitudes" id="navMyRequests" class="nav-item inline-style-1">
+          <span class="nav-text">Mis Solicitudes</span>
+        </div>
+
+        <!-- Admin section -->
+        <div data-role="admin" class="nav-section-title inline-style-1">Administración</div>
+        <div data-role="admin" data-page="approvals" data-label="Autorizaciones" id="navApprovals" class="nav-item inline-style-1">
+          <span class="nav-text">Autorizaciones</span>
+          <span id="pendingBadge" class="nav-badge inline-style-1">0</span>
+        </div>
+        <div data-role="admin" data-page="bulkImport" data-label="Carga Masiva" id="navBulk" class="nav-item inline-style-1">
+          <span class="nav-text">Carga Masiva</span>
+        </div>
+        <div data-role="admin" data-page="users" data-label="Usuarios" id="navUsers" class="nav-item inline-style-1">
+          <span class="nav-text">Usuarios</span>
+        </div>
+        <div data-role="admin" data-page="audit" data-label="Bitácora" id="navAudit" class="nav-item inline-style-1">
+          <span class="nav-text">Bitácora</span>
+        </div>
+      </nav>
+      <div class="sidebar-footer border-t border-divider">
+        <div class="user-info">
+          <div id="userAvatar" class="user-avatar">A</div>
+          <div class="user-details">
+            <div id="userName" class="user-name">Admin</div>
+            <div id="userRole" class="user-role">admin</div>
+          </div>
+          <button id="logoutBtn" title="Cerrar sesión" class="btn-logout">
+            <span class="nav-icon">🚪</span>
+            <span class="nav-text">Salir</span>
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content bg-canvas">
+      <div class="env-banner">ENTORNO DE PRUEBAS / DESARROLLO</div>
+      <button id="mobileToggle" aria-label="Menu">☰</button>
+
+      <!-- ===== Dashboard Page ===== -->
+      <div id="pageDashboard" class="page">
+        <div class="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6 w-full">
+            
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-4">
+                    <div>
+                        <h1 class="text-2xl font-bold text-content-primary">Resumen General</h1>
+                        <p class="text-content-muted dark:text-content-muted text-sm mt-1">Monitoreo de inventario y estado de BINes</p>
+                    </div>
+                    
+                    <div class="flex flex-wrap items-center gap-3">
+                        <!-- Filtros de Estado Globales (Pills) -->
+                        <div id="dashboardFilters" class="flex gap-3 text-[13px] bg-surface px-2 py-1.5 rounded-full border border-divider shadow-sm">
+                            <label class="cursor-pointer">
+                                <input type="checkbox" value="assigned" checked class="peer sr-only">
+                                <span class="block px-4 py-1.5 rounded-full font-semibold tracking-wide text-content-muted dark:text-content-muted bg-transparent peer-checked:bg-emerald-100 peer-checked:text-emerald-700 transition-colors">ASSIGNED</span>
+                            </label>
+                            <label class="cursor-pointer border-l border-divider">
+                                <input type="checkbox" value="available" checked class="peer sr-only">
+                                <span class="block px-4 py-1.5 rounded-full font-semibold tracking-wide text-content-muted dark:text-content-muted bg-transparent peer-checked:bg-blue-100 peer-checked:text-blue-700 transition-colors">AVAILABLE</span>
+                            </label>
+                            <label class="cursor-pointer border-l border-divider">
+                                <input type="checkbox" value="on_hold" checked class="peer sr-only">
+                                <span class="block px-4 py-1.5 rounded-full font-semibold tracking-wide text-content-muted dark:text-content-muted bg-transparent peer-checked:bg-amber-100 peer-checked:text-amber-700 transition-colors">ON_HOLD</span>
+                            </label>
+                            <label class="cursor-pointer border-l border-divider">
+                                <input type="checkbox" value="segmented" checked class="peer sr-only">
+                                <span class="block px-4 py-1.5 rounded-full font-semibold tracking-wide text-content-muted dark:text-content-muted bg-transparent peer-checked:bg-red-100 peer-checked:text-red-700 transition-colors">SEGMENTED</span>
+                            </label>
+                        </div>
+                        
+                        <!-- Botón FILTROS Avanzados -->
+                        <button id="dashToggleFiltersBtn" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold tracking-wide px-6 py-2.5 rounded-full shadow-lg shadow-blue-500/30 transition-all flex items-center gap-2">
+                            FILTROS
+                        </button>
+                        
+                        <!-- Botón LIMPIAR -->
+                        <button id="dashClearFiltersBtn" class="text-content-muted dark:text-content-muted hover:text-content-secondary bg-slate-100 hover:bg-slate-200 text-sm font-bold tracking-wide px-4 py-2.5 rounded-full transition-all flex items-center gap-2" title="Limpiar todos los filtros">
+                            <i class="ph ph-arrows-counter-clockwise"></i> LIMPIAR
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Filtros Avanzados (Ocultos por defecto, Grid de 5 columnas) -->
+                <div id="dashboardAdvancedFilters" class="hidden mb-6 bg-surface p-5 rounded-xl border border-divider shadow-sm text-sm transition-all relative">
+                    <div class="absolute -top-3 left-4 bg-surface px-2 text-content-muted dark:text-content-muted font-medium flex items-center gap-1 text-xs">
+                        <i class="ph ph-funnel text-sm"></i> Filtros de Datos
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 w-full">
+                        <select id="dashFilterLength" class="form-select w-full text-content-secondary bg-canvas border-divider rounded-lg py-2 px-3 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                            <option value="">Todas las longitudes</option>
+                        </select>
+                        <select id="dashFilterCountry" class="form-select w-full text-content-secondary bg-canvas border-divider rounded-lg py-2 px-3 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                            <option value="">Todos los países</option>
+                        </select>
+                        <select id="dashFilterEmbosser" class="form-select w-full text-content-secondary bg-canvas border-divider rounded-lg py-2 px-3 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                            <option value="">Todos los embozadores</option>
+                        </select>
+                        <select id="dashFilterTokenizado" class="form-select w-full text-content-secondary bg-canvas border-divider rounded-lg py-2 px-3 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                            <option value="">Tokenización (Todos)</option>
+                            <option value="Si">Sí</option>
+                            <option value="No">No</option>
+                        </select>
+                        <div class="relative w-full">
+                            <input type="text" id="dashFilterParentBin" list="parentBinsDatalist" placeholder="Buscar BIN padre..." class="w-full text-content-secondary bg-canvas border border-divider rounded-lg py-2 px-3 shadow-sm focus:border-blue-500 focus:ring-blue-500 focus:outline-none">
+                            <datalist id="parentBinsDatalist"></datalist>
+                        </div>
+                    </div>
+                </div>
+
+            <!-- KPIs Generales -->
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                <div class="glass-card p-5 border-t border-divider">
+                    <p class="text-sm text-content-muted dark:text-content-muted font-medium">Total de BINs</p>
+                    <div class="mt-2 flex items-baseline gap-2">
+                        <span id="kpiTotalBins" class="text-3xl font-black text-content-primary">0</span>
+                    </div>
+                    <div class="mt-1">
+                        <span id="kpiTotalSub" class="text-[11px] text-content-muted dark:text-content-muted font-medium leading-tight block">...</span>
+                    </div>
+                </div>
+                <div class="glass-card p-5 border-l-4 border-l-status-assigned">
+                    <p class="text-sm text-content-muted dark:text-content-muted font-medium">Asignados</p>
+                    <div class="mt-2 flex items-baseline gap-2">
+                        <span id="kpiAssigned" class="text-3xl font-black text-content-primary">0</span>
+                    </div>
+                    <div class="mt-1">
+                        <span id="kpiAssignedSub" class="text-[11px] text-content-muted dark:text-content-muted font-medium leading-tight block">...</span>
+                    </div>
+                </div>
+                <div class="glass-card p-5 border-l-4 border-l-status-available bg-blue-50/30">
+                    <p class="text-sm text-content-muted dark:text-content-muted font-medium">Disponibles</p>
+                    <div class="mt-2 flex items-baseline gap-2">
+                        <span id="kpiAvailable" class="text-3xl font-black text-content-primary">0</span>
+                    </div>
+                    <div class="mt-1">
+                        <span id="kpiAvailableSub" class="text-[11px] text-content-muted dark:text-content-muted font-medium leading-tight block">...</span>
+                    </div>
+                </div>
+                <div class="glass-card p-5 border-l-4 border-l-status-hold">
+                    <p class="text-sm text-content-muted dark:text-content-muted font-medium">En Hold</p>
+                    <div class="mt-2 flex items-baseline gap-2">
+                        <span id="kpiOnHold" class="text-3xl font-black text-content-primary">0</span>
+                    </div>
+                    <div class="mt-1">
+                        <span id="kpiOnHoldSub" class="text-[11px] text-content-muted dark:text-content-muted font-medium leading-tight block">...</span>
+                    </div>
+                </div>
+                <div class="glass-card p-5 border-l-4 border-l-status-segmented">
+                    <p class="text-sm text-content-muted dark:text-content-muted font-medium">Segmentados</p>
+                    <div class="mt-2 flex items-baseline gap-2">
+                        <span id="kpiSegmented" class="text-3xl font-bold text-content-primary">0</span>
+                    </div>
+                    <div class="mt-1">
+                        <span id="kpiSegmentedSub" class="text-[11px] text-content-muted dark:text-content-muted font-medium leading-tight block">...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ======================= SECCIÓN 1: INVENTARIO ======================= -->
+            <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                <!-- Producto vs Estado (Ocupa 2 columnas) -->
+                <div class="glass-card p-6 xl:col-span-2 flex flex-col transition-all hover:shadow-md">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-base font-semibold text-slate-800">Inventario por Producto y Estado</h2>
+                    </div>
+                    <div class="relative flex-1 min-h-[300px]">
+                        <canvas id="productStatusChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Dominancia de Producto (Donut) -->
+                <div class="glass-card p-6 flex flex-col transition-all hover:shadow-md">
+                    <h2 class="text-base font-semibold text-slate-800 mb-4">Dominancia por Producto</h2>
+                    <div class="relative flex-1 min-h-[300px] flex items-center justify-center">
+                        <canvas id="productDonutChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ======================= SECCIÓN 2: GEOGRAFÍA E ICAS ======================= -->
+            <div class="mt-10 mb-6 flex items-center gap-4">
+                <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                    <i class="ph ph-globe-hemisphere-west text-blue-600 text-2xl"></i> 
+                    Distribución Geográfica y Asignación de ICAs
+                </h2>
+                <div class="flex-1 border-b border-divider"></div>
+            </div>
+
+            <!-- Grid de Geografía: Tabla visual (izq) y KPIs (der) -->
+            <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
+                
+                <!-- Tabla Visual de Países -->
+                <div class="glass-card overflow-hidden flex flex-col xl:col-span-2 transition-all hover:shadow-md">
+                    <div class="p-5 border-b border-divider bg-canvas/50 flex justify-between items-center">
+                        <h2 class="text-base font-semibold text-slate-800">Distribución por País (Productos)</h2>
+                        <div class="flex gap-2 text-xs font-semibold">
+                            <span class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-purple-50 text-purple-700 border border-purple-100"><div class="w-1.5 h-1.5 rounded-full bg-purple-600"></div> Crédito</span>
+                            <span class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-50 text-amber-700 border border-amber-100"><div class="w-1.5 h-1.5 rounded-full bg-amber-500"></div> Débito</span>
+                            <span class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 border border-blue-100"><div class="w-1.5 h-1.5 rounded-full bg-blue-600"></div> Prepago</span>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto" style="max-height: 350px; overflow-y: auto;">
+                        <table class="w-full text-sm text-left">
+                            <thead class="text-xs text-content-muted dark:text-content-muted uppercase bg-canvas border-b border-divider sticky top-0 z-10 font-bold tracking-wider">
+                                <tr>
+                                    <th scope="col" class="px-6 py-4">Country</th>
+                                    <th scope="col" class="px-6 py-4 text-center">Crédito</th>
+                                    <th scope="col" class="px-6 py-4 text-center">Débito</th>
+                                    <th scope="col" class="px-6 py-4 text-center">Prepago</th>
+                                    <th scope="col" class="px-6 py-4 text-center">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableCountryVisualBody" class="divide-y divide-slate-100 text-content-secondary">
+                                <!-- Llenado por JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- KPIs de Geografía (Cuadrícula 2x2) -->
+                <div class="grid grid-cols-2 gap-4 h-full">
+                    <div class="glass-card p-5 flex flex-col justify-center items-center text-center transition-all hover:-translate-y-1 hover:shadow-md">
+                        <i class="ph ph-flag text-3xl text-indigo-500 mb-2"></i>
+                        <span id="kpiGeoActive" class="text-3xl font-black text-content-primary">0</span>
+                        <p class="text-xs text-content-muted dark:text-content-muted font-bold uppercase tracking-wider mt-1">Países Activos</p>
+                    </div>
+                    <div class="glass-card p-5 flex flex-col justify-center items-center text-center transition-all hover:-translate-y-1 hover:shadow-md">
+                        <i class="ph ph-identification-card text-3xl text-teal-500 mb-2"></i>
+                        <span id="kpiGeoTotalIcas" class="text-3xl font-black text-content-primary">0</span>
+                        <p class="text-xs text-content-muted dark:text-content-muted font-bold uppercase tracking-wider mt-1">Total de ICAs</p>
+                    </div>
+                    <div class="glass-card p-5 flex flex-col justify-center items-center text-center transition-all hover:-translate-y-1 hover:shadow-md">
+                        <i class="ph ph-trophy text-3xl text-amber-500 mb-2"></i>
+                        <span id="kpiGeoTopCountry" class="text-xl font-bold text-content-primary truncate w-full px-2">-</span>
+                        <p class="text-xs text-content-muted dark:text-content-muted font-bold uppercase tracking-wider mt-1">Top País</p>
+                    </div>
+                    <div class="glass-card p-5 flex flex-col justify-center items-center text-center transition-all hover:-translate-y-1 hover:shadow-md">
+                        <i class="ph ph-crown text-3xl text-rose-500 mb-2"></i>
+                        <span id="kpiGeoTopProduct" class="text-xl font-bold text-content-primary truncate w-full px-2">-</span>
+                        <p class="text-xs text-content-muted dark:text-content-muted font-bold uppercase tracking-wider mt-1">Producto Líder</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sección de Tabla Interactiva (ICAs) -->
+            <div class="glass-card overflow-hidden flex flex-col transition-all hover:shadow-md">
+                <div class="p-5 border-b border-divider bg-canvas/50 flex justify-between items-center">
+                    <h2 class="text-base font-semibold text-slate-800">Directorio de ICAs</h2>
+                </div>
+                <div class="overflow-x-auto" style="max-height: 400px; overflow-y: auto;">
+                    <table class="w-full text-sm text-left">
+                        <thead class="text-xs text-content-muted dark:text-content-muted uppercase tracking-wider font-semibold bg-canvas border-b border-divider sticky top-0 z-10">
+                            <tr>
+                                <th scope="col" class="px-6 py-4">Country</th>
+                                <th scope="col" class="px-6 py-4">ICA</th>
+                                <th scope="col" class="px-6 py-4">ICA_QMR</th>
+                                <th scope="col" class="px-6 py-4">BIN_NUMBER</th>
+                                <th scope="col" class="px-6 py-4">Client</th>
+                                <th scope="col" class="px-6 py-4 text-right">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableIcasBody" class="divide-y divide-slate-100">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- ======================= SECCIÓN 3: EMBOZADORES ======================= -->
+            <div class="mt-10 mb-6 flex items-center gap-4">
+                <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                    <i class="ph ph-printer text-blue-600 text-2xl"></i>
+                    Directorio de Partners y Embozadores
+                </h2>
+                <div class="flex-1 border-b border-divider"></div>
+            </div>
+
+            <!-- KPIs de Embozadores (4 tarjetas) -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div class="glass-card p-5 flex flex-col justify-center transition-all hover:shadow-md border-l-4 border-l-indigo-500">
+                    <p class="text-xs text-content-muted dark:text-content-muted font-bold uppercase tracking-wider">Activos</p>
+                    <span id="kpiEmbCount" class="text-3xl font-black text-content-primary mt-1 block">0</span>
+                </div>
+                <div class="glass-card p-5 flex flex-col justify-center transition-all hover:shadow-md border-l-4 border-l-emerald-500">
+                    <p class="text-xs text-content-muted dark:text-content-muted font-bold uppercase tracking-wider">Asignados</p>
+                    <span id="kpiEmbAssigned" class="text-3xl font-black text-content-primary mt-1 block">0</span>
+                </div>
+                <div class="glass-card p-5 flex flex-col justify-center transition-all hover:shadow-md border-l-4 border-l-amber-500">
+                    <p class="text-xs text-content-muted dark:text-content-muted font-bold uppercase tracking-wider">Pendientes</p>
+                    <span id="kpiEmbPending" class="text-3xl font-black text-content-primary mt-1 block">0</span>
+                </div>
+                <div class="glass-card p-5 flex flex-col justify-center transition-all hover:shadow-md border-l-4 border-l-rose-500">
+                    <p class="text-xs text-content-muted dark:text-content-muted font-bold uppercase tracking-wider">Top Partner</p>
+                    <span id="kpiEmbTop" class="text-xl font-bold text-content-primary mt-1 block truncate w-full">-</span>
+                </div>
+            </div>
+
+            <!-- Embozadores Container -->
+            <div class="glass-card overflow-hidden flex flex-col transition-all hover:shadow-md">
+                <div class="p-5 border-b border-divider bg-canvas/50">
+                    <h2 class="text-base font-semibold text-slate-800">Directorio de Embozadores</h2>
+                </div>
+                <div class="overflow-x-auto" style="max-height: 400px; overflow-y: auto;">
+                    <table class="w-full text-sm text-left whitespace-nowrap">
+                        <thead class="text-xs text-content-muted dark:text-content-muted uppercase tracking-wider font-semibold bg-canvas border-b border-divider sticky top-0 z-10">
+                            <tr>
+                                <th scope="col" class="px-6 py-4">Embosser</th>
+                                <th scope="col" class="px-6 py-4">Client</th>
+                                <th scope="col" class="px-6 py-4">Country</th>
+                                <th scope="col" class="px-6 py-4">BIN_NUMBER</th>
+                                <th scope="col" class="px-6 py-4 text-center">Product</th>
+                                <th scope="col" class="px-6 py-4 text-center">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableEmbozadoresBody" class="divide-y divide-slate-100">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="h-8"></div>
+        </div>
+      </div>
+
+      <!-- ===== BINs Page ===== -->
+      <div id="pageBins" class="page hidden">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-surface p-6 rounded-2xl glass-card mb-6">
+            <div>
+                <h1 class="text-3xl font-bold text-content-primary tracking-tight font-sans">Gestión de BINes</h1>
+                <p class="text-content-muted dark:text-content-muted text-sm mt-1">Administra y consulta el inventario completo de BINes</p>
+            </div>
+            <button data-role="admin" id="addBinBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-semibold shadow-md shadow-blue-600/20 transition-all flex items-center gap-2">
+                <i class="ph ph-plus font-bold"></i>
+                NUEVO BIN
+            </button>
+        </div>
+        <div class="page-body">
+          <div class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div class="relative w-full md:w-96">
+              <i class="ph ph-magnifying-glass text-content-muted absolute left-3 top-1/2 -translate-y-1/2 text-lg"></i>
+              <input type="text" id="searchInput" placeholder="Buscar por BIN, ICA, o Cliente..." class="block w-full pl-10 pr-4 py-2.5 border border-divider rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-surface transition-shadow text-sm text-content-secondary shadow-sm">
+            </div>
+            
+            <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
+              <button id="openFilterPanelBtn" class="bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold px-4 py-2.5 rounded-lg transition-colors flex items-center gap-2 text-sm border-0">
+                <i class="ph ph-funnel-simple text-lg"></i> FILTROS
+                <span id="activeFilterBadge" class="bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full hidden">0</span>
+              </button>
+
+              <div class="h-6 w-px bg-slate-200 mx-1 hidden md:block"></div>
+
+              <div class="relative group">
+                <button id="exportDropdownBtn" class="bg-surface text-content-secondary hover:bg-surface-hover dark:bg-slate-800/40 border border-divider shadow-sm px-4 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 text-sm">
+                  <i class="ph ph-download-simple text-lg"></i> EXPORTAR <i class="ph ph-caret-down text-xs"></i>
+                </button>
+                <div id="exportDropdownMenu" class="hidden absolute right-0 mt-2 w-56 bg-surface border border-divider shadow-xl rounded-xl z-20 py-2 text-sm">
+                  <button id="exportAllBtn" class="w-full text-left px-4 py-2 text-content-secondary hover:bg-surface-hover dark:bg-slate-800/40 flex items-center gap-2"><i class="ph ph-list-numbers"></i> Exportar todo</button>
+                  <button id="exportFilteredBtn" class="w-full text-left px-4 py-2 text-content-secondary hover:bg-surface-hover dark:bg-slate-800/40 flex items-center gap-2"><i class="ph ph-funnel"></i> Exportar filtrados</button>
+                </div>
+              </div>
+
+              <div class="relative group">
+                <button id="colPickerBtn" class="bg-surface text-content-secondary hover:bg-surface-hover dark:bg-slate-800/40 border border-divider shadow-sm px-4 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 text-sm">
+                  <i class="ph ph-columns text-lg"></i> COLUMNAS
+                </button>
+                <div id="colPickerPanel" class="col-picker-panel hidden absolute right-0 mt-2 w-56 bg-surface border border-divider shadow-xl rounded-xl z-20 pb-2 text-sm"></div>
+              </div>
+
+              <button data-role="admin" id="segmentBinBtn" class="bg-surface text-content-secondary hover:bg-surface-hover dark:bg-slate-800/40 border border-divider shadow-sm px-4 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 text-sm">
+                <i class="ph ph-folder-notch-minus text-lg"></i> SEGMENTAR BIN
+              </button>
+
+              <button data-role="admin" id="deleteAllBinsBtn" class="bg-transparent border-0 text-red-600 hover:bg-red-50 font-medium px-4 py-2.5 rounded-lg transition-colors flex items-center gap-2 text-sm ml-auto md:ml-2">
+                <i class="ph ph-trash text-lg"></i> ELIMINAR TODOS
+              </button>
+            </div>
+          </div>
+
+          <!-- Active Filters Summary Bar -->
+          <div id="activeFiltersSummary" class="active-filters-summary hidden">
+            <span class="filter-summary-label">Filtros activos:</span>
+            <div id="filterChipsContainer" class="filter-chips-container"></div>
+            <button id="clearAllFiltersQuick" class="filter-clear-all-btn">✕ Limpiar todos</button>
+          </div>
+
+          <!-- Filter Side Panel -->
+          <div id="filterSidePanelOverlay" class="fixed inset-0 z-50 flex justify-end hidden">
+            <!-- El fondo oscuro -->
+            <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" id="filterSideBackdrop"></div>
+            
+            <!-- El Panel -->
+            <div class="relative w-full max-w-md bg-surface h-full flex flex-col shadow-2xl">
+                
+                <!-- Header Fijo -->
+                <div class="px-6 py-5 border-b border-divider shrink-0 flex justify-between items-center">
+                    <div>
+                        <h2 class="text-xl font-bold">Filtros</h2>
+                        <p class="text-sm text-content-muted dark:text-content-muted">Refina tu búsqueda</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button id="clearFiltersBtn" class="text-xs font-bold text-content-muted hover:text-content-secondary tracking-wider">RESET ALL</button>
+                        <button id="closeFilterPanelBtn" class="text-content-muted hover:text-content-secondary text-lg">✕</button>
+                    </div>
+                </div>
+                
+                <!-- Body Scrolleable -->
+                <div class="flex-1 overflow-y-auto px-6 py-6">
+                    <div class="mb-6">
+                        <label class="flex items-center gap-3 cursor-pointer hover:bg-surface-hover dark:bg-slate-800/40 p-2 rounded-lg">
+                            <input type="checkbox" id="filterParentOnly" class="custom-checkbox">
+                            <span class="text-sm font-medium text-content-secondary">Solo padres</span>
+                        </label>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-5">
+                        <div class="col-span-1">
+                            <label class="block text-xs font-bold text-content-muted dark:text-content-muted uppercase tracking-wider mb-2">País</label>
+                            <div class="multiselect-dropdown" id="msCountry" data-filter="country" data-label="País"></div>
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-xs font-bold text-content-muted dark:text-content-muted uppercase tracking-wider mb-2">Estado</label>
+                            <div class="multiselect-dropdown" id="msStatus" data-filter="status" data-label="Estado"
+                                data-static="available:Disponible,segmented:Segmentado,assigned:Asignado,pending:Por aprobar,exhausted:Agotado,on_hold:En Espera"></div>
+                        </div>
+                        
+                        <div class="col-span-1">
+                            <label class="block text-xs font-bold text-content-muted dark:text-content-muted uppercase tracking-wider mb-2">Marca</label>
+                            <div class="multiselect-dropdown" id="msBrand" data-filter="brand" data-label="Marca"></div>
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-xs font-bold text-content-muted dark:text-content-muted uppercase tracking-wider mb-2">Dígitos</label>
+                            <div class="multiselect-dropdown" id="msLength" data-filter="bin_length" data-label="Dígitos"
+                                data-static="8:8 dígitos,9:9 dígitos,10:10 dígitos"></div>
+                        </div>
+
+                        <div class="col-span-1">
+                            <label class="block text-xs font-bold text-content-muted dark:text-content-muted uppercase tracking-wider mb-2">Segmento</label>
+                            <div class="multiselect-dropdown" id="msSegment" data-filter="segment" data-label="Segmento"></div>
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-xs font-bold text-content-muted dark:text-content-muted uppercase tracking-wider mb-2">Producto</label>
+                            <div class="multiselect-dropdown" id="msProduct" data-filter="product" data-label="Producto"></div>
+                        </div>
+
+                        <div class="col-span-1">
+                            <label class="block text-xs font-bold text-content-muted dark:text-content-muted uppercase tracking-wider mb-2">Tipo de BIN</label>
+                            <div class="multiselect-dropdown" id="msBinType" data-filter="bin_type" data-label="Tipo de BIN"></div>
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-xs font-bold text-content-muted dark:text-content-muted uppercase tracking-wider mb-2">Embozador</label>
+                            <div class="multiselect-dropdown" id="msEmbosser" data-filter="embosser" data-label="Embozador"></div>
+                        </div>
+
+                        <div class="col-span-1">
+                            <label class="block text-xs font-bold text-content-muted dark:text-content-muted uppercase tracking-wider mb-2">ICA</label>
+                            <div class="multiselect-dropdown" id="msIca" data-filter="ica" data-label="ICA"></div>
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-xs font-bold text-content-muted dark:text-content-muted uppercase tracking-wider mb-2">Cliente</label>
+                            <div class="multiselect-dropdown" id="msClient" data-filter="client" data-label="Cliente"></div>
+                        </div>
+
+                        <div class="col-span-1">
+                            <label class="block text-xs font-bold text-content-muted dark:text-content-muted uppercase tracking-wider mb-2">Billeteras</label>
+                            <div class="multiselect-dropdown" id="msProcessor" data-filter="billeteras" data-label="Billeteras"></div>
+                        </div>
+                        <div class="col-span-1">
+                            <label class="block text-xs font-bold text-content-muted dark:text-content-muted uppercase tracking-wider mb-2">Tipo de Saldos</label>
+                            <div class="multiselect-dropdown" id="msBalanceType" data-filter="balance_type" data-label="Tipo de Saldos"></div>
+                        </div>
+
+                        <div class="col-span-2">
+                            <label class="block text-xs font-bold text-content-muted dark:text-content-muted uppercase tracking-wider mb-2">BIN Tokenizado</label>
+                            <div class="multiselect-dropdown" id="msBinTokenizado" data-filter="bin_tokenizado" data-label="BIN Tokenizado" data-static="Sí:Sí,No:No"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer Fijo -->
+                <div class="p-6 border-t border-divider bg-canvas shrink-0">
+                    <button id="applyFiltersBtnPanel" class="w-full bg-blue-600 hover:bg-blue-700 transition-colors text-white py-3 rounded-xl font-bold shadow-lg shadow-blue-600/30">
+                        APPLY FILTERS
+                    </button>
+                </div>
+
+            </div>
+          </div>
+          <div class="table-container bg-surface border border-divider rounded-xl shadow-sm overflow-hidden mt-2">
+            <div class="table-info px-5 py-4 border-b border-divider bg-canvas flex justify-between items-center">
+              <span id="binsCount" class="font-bold text-slate-800 text-sm">0 BINes</span>
+            </div>
+            <div class="table-scroll overflow-x-auto">
+              <table class="w-full text-left text-sm whitespace-nowrap">
+                <thead class="text-xs text-content-muted dark:text-content-muted uppercase tracking-wider font-semibold bg-canvas border-b border-divider">
+                  <tr>
+                    <th class="col-country sticky left-0 bg-canvas z-10 shadow-[1px_0_0_#e2e8f0] px-6 py-4 cursor-pointer hover:text-content-secondary transition-colors" data-sort="country">País</th>
+                    <th class="col-ica px-6 py-4 cursor-pointer hover:text-content-secondary transition-colors" data-sort="ica">ICA</th>
+                    <th class="col-ica-qmr px-6 py-4 cursor-pointer hover:text-content-secondary transition-colors">ICA QMR</th>
+                    <th class="col-bin px-6 py-4 cursor-pointer hover:text-content-secondary transition-colors" data-sort="bin_number">BIN</th>
+                    <th class="col-digits px-6 py-4 cursor-pointer hover:text-content-secondary transition-colors">Dígitos</th>
+                    <th class="col-brand px-6 py-4 cursor-pointer hover:text-content-secondary transition-colors" data-sort="brand">Marca</th>
+                    <th class="col-product px-6 py-4 cursor-pointer hover:text-content-secondary transition-colors" data-sort="product">Producto</th>
+                    <th class="col-segment px-6 py-4 cursor-pointer hover:text-content-secondary transition-colors" data-sort="segment">Segmento</th>
+                    <th class="col-status px-6 py-4 cursor-pointer hover:text-content-secondary transition-colors" data-sort="status">Estado</th>
+                    <th class="col-client px-6 py-4 cursor-pointer hover:text-content-secondary transition-colors" data-sort="client">Cliente</th>
+                    <th class="col-bin-tok px-6 py-4 cursor-pointer hover:text-content-secondary transition-colors" data-sort="bin_tokenizado">BIN Tokenizado</th>
+                    <th class="col-billeteras px-6 py-4 cursor-pointer hover:text-content-secondary transition-colors" data-sort="billeteras">Billeteras</th>
+                    <th class="col-bin-type px-6 py-4 cursor-pointer hover:text-content-secondary transition-colors" data-sort="bin_type">Tipo de BIN</th>
+                    <th class="col-embosser px-6 py-4 cursor-pointer hover:text-content-secondary transition-colors">Embozador</th>
+                    <th class="col-balance px-6 py-4 cursor-pointer hover:text-content-secondary transition-colors">Tipo de Saldos</th>
+                    <th class="col-actions px-6 py-4" data-role="admin">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="binsTableBody" class="divide-y divide-slate-100 text-content-secondary"></tbody>
+              </table>
+            </div>
+          </div>
+          <div id="binsPagination"></div>
+        </div>
+      </div>
+
+      <!-- ===== Request BIN Page (Requester) ===== -->
+      <div id="pageRequest" data-role="requester" class="page hidden inline-style-1">
+        <div class="page-header">
+          <div>
+            <h2 class="page-title">Solicitar BIN</h2>
+            <p class="page-subtitle">Complete los datos para solicitar un BIN</p>
+          </div>
+        </div>
+        <div class="page-body">
+          <div class="form-card">
+            <form id="requestForm" class="form-grid">
+              <div class="form-group">
+                <label for="reqCountry" class="form-label">País *</label>
+                <div class="inline-style-18">
+                  <select id="reqCountry" title="req ountry" required class="form-select inline-style-19">
+                    <option value="">Seleccionar...</option>
+                    <!-- Populated dynamically from /api/countries -->
+                  </select>
+                  <button type="button" id="reqAddCountryBtn" data-role="admin" title="Agregar país" class="btn btn-secondary btn-sm inline-style-1">＋</button>
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="reqDigits" class="form-label">Dígitos *</label>
+                <select id="reqDigits" title="req igits" required class="form-select">
+                  <option value="">Seleccionar...</option>
+                  <option value="8" id="reqDigits8">8 dígitos</option>
+                  <option value="9">9 dígitos</option>
+                  <option value="10">10 dígitos</option>
+                </select>
+                <div id="reqDigitsMsg" class="inline-style-20"></div>
+              </div>
+              <div class="form-group">
+                <label for="reqBrand" class="form-label">Marca *</label>
+                <select id="reqBrand" title="req rand" required class="form-select">
+                  <option value="">Seleccionar...</option>
+                  <option value="Visa">Visa</option>
+                  <option value="Mastercard">Mastercard</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="reqProduct" class="form-label">Producto *</label>
+                <select id="reqProduct" title="Producto" required class="form-select">
+                  <option value="">Seleccionar...</option>
+                  <option value="Prepago">Prepago</option>
+                  <option value="Débito">Débito</option>
+                  <option value="Crédito">Crédito</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="reqSegment" class="form-label">Segmento *</label>
+                <select id="reqSegment" title="Segmento" required disabled class="form-select">
+                  <option value="">Primero seleccione Producto...</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="reqBinType" class="form-label">Tipo de BIN *</label>
+                <select id="reqBinType" title="req in ype" required class="form-select">
+                  <option value="">Seleccionar...</option>
+                  <option value="Sponsor">Sponsor</option>
+                  <option value="Miembro Principal">Miembro Principal</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="reqClient" class="form-label">Cliente *</label>
+                <input title="req lient" type="text" id="reqClient" placeholder="Nombre del cliente" required class="form-input">
+              </div>
+              <div class="form-group">
+                <label for="reqRequiereTokenizacion" class="form-label">¿Requiere Tokenización BIN? *</label>
+                <select id="reqRequiereTokenizacion" title="req equiere okenizacion" required class="form-select">
+                  <option value="">Seleccionar...</option>
+                  <option value="No">No — BIN Segmentado (uso compartido)</option>
+                  <option value="Sí">Sí — BIN Tokenizado (uso exclusivo, 8 dígitos)</option>
+                </select>
+                <div id="reqTokenizadoMsg" class="inline-style-20" style="display:none;"></div>
+              </div>
+              <div class="form-group">
+                <label for="reqBilleteras" class="form-label">Billeteras *</label>
+                <select id="reqBilleteras" title="reqBilleteras" required class="form-select">
+                  <option value="">Seleccionar...</option>
+                  <option value="No aplica">No aplica</option>
+                  <option value="Apple propia">Apple propia</option>
+                  <option value="Google propia">Google propia</option>
+                  <option value="Apple Volcán">Apple Volcán</option>
+                  <option value="Google Volcán">Google Volcán</option>
+                  <option value="Ambas propias">Ambas propias</option>
+                  <option value="Ambas Volcán">Ambas Volcán</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="reqKeys" class="form-label">Llaves *</label>
+                <select id="reqKeys" title="req eys" required class="form-select">
+                  <option value="">Seleccionar...</option>
+                  <option value="Interna">Interna</option>
+                  <option value="Externa">Externa</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="reqEmbosser" class="form-label">Embozador *</label>
+                <div class="inline-style-21">
+                  <select id="reqEmbosser" title="req mbosser" required class="form-select inline-style-19">
+                    <option value="">Seleccionar...</option>
+                    <!-- Populated dynamically from /api/embossers -->
+                  </select>
+                  <button type="button" id="reqAddEmbosserBtn" data-role="admin" title="Agregar embozador" class="btn btn-secondary btn-sm inline-style-1">＋</button>
+                </div>
+                <div id="embosserMsg" class="inline-style-20"></div>
+              </div>
+              <div class="form-group">
+                <label for="reqBalanceType" class="form-label">Tipo de Saldos *</label>
+                <select id="reqBalanceType" title="req alance ype" required class="form-select">
+                  <option value="">Seleccionar...</option>
+                  <option value="Interno">Interno</option>
+                  <option value="Externo">Externo</option>
+                </select>
+              </div>
+              <div class="form-group full-width inline-style-22">
+                <button type="button" id="clearRequestFormBtn" class="btn btn-ghost inline-style-23">LIMPIAR FORMULARIO</button>
+                <button type="button" id="submitRequestBtn" class="btn btn-primary inline-style-23">Enviar Solicitud</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== My Requests Page (Requester) ===== -->
+      <div id="pageMyRequests" data-role="requester" class="page hidden inline-style-1">
+        <div class="page-header">
+          <div>
+            <h2 class="page-title">Mis Solicitudes</h2>
+            <p class="page-subtitle">Estado de tus solicitudes de BIN</p>
+          </div>
+        </div>
+        <div class="page-body">
+          <div class="table-container">
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Cliente</th>
+                    <th>Dígitos</th>
+                    <th>BIN Propuesto</th>
+                    <th>Marca</th>
+                    <th>Producto</th>
+                    <th>Segmento</th>
+                    <th>Req. Tokenización</th>
+                    <th>Estado</th>
+                    <th>Aprobado por</th>
+                  </tr>
+                </thead>
+                <tbody id="myRequestsBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== Approvals Page (Admin) ===== -->
+      <div id="pageApprovals" data-role="admin" class="page hidden inline-style-1">
+        <div class="page-header">
+          <div>
+            <h2 class="page-title">Autorizaciones</h2>
+            <p class="page-subtitle">Aprobar o rechazar solicitudes de BIN</p>
+          </div>
+        </div>
+        <div class="page-body">
+          <div class="filters-bar">
+            <select id="filterApprovalStatus" title="iltro de  pproval tatus" class="filter-select">
+              <option value="pending">Pendientes</option>
+              <option value="">Todas</option>
+              <option value="approved">Aprobadas</option>
+              <option value="rejected">Rechazadas</option>
+            </select>
+          </div>
+          <div class="table-container">
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Solicitante</th>
+                    <th>Cliente</th>
+                    <th>Dígitos</th>
+                    <th>BIN Propuesto</th>
+                    <th>País</th>
+                    <th>Marca</th>
+                    <th>Producto</th>
+                    <th>Segmento</th>
+                    <th>Tipo</th>
+                    <th>Req. Tokenización</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="approvalsBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== Bulk Import Page (Admin) ===== -->
+      <div id="pageBulkImport" data-role="admin" class="page hidden inline-style-1">
+        <div class="page-header">
+          <div>
+            <h2 class="page-title">Carga Masiva</h2>
+            <p class="page-subtitle">Importar BINes desde archivo o datos</p>
+          </div>
+        </div>
+        <div class="page-body">
+          <div class="form-card">
+            <div class="inline-style-24">
+              <p class="inline-style-25">Pegue datos CSV o seleccione un
+                archivo Excel. Columnas esperadas:</p>
+              <code class="inline-style-26">country, ica, ica_qmr, bin_number, brand, product, segment, client, billeteras, keys, embosser, bin_type, balance_type</code>
+              <p class="inline-style-27">💡 <b>Estado</b>, <b>Dígitos</b> y <b>BIN Padre</b> se
+                calculan automáticamente: si tiene Cliente → Asignado, si no → Disponible. El BIN padre se toma de los
+                primeros 8 dígitos para BINes de 9-10 dígitos.</p>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Archivo Excel/CSV</label>
+              <input title="bulk ile" type="file" id="bulkFile" accept=".xlsx,.xls,.csv,.txt" class="form-input inline-style-28">
+            </div>
+            <div class="form-group inline-style-29">
+              <label class="form-label">O pegue datos CSV</label>
+              <textarea id="bulkCsvData" rows="8" placeholder="country,ica,ica_qmr,bin_number,brand,product,segment,client,billeteras,keys,embosser,bin_type,balance_type&#10;Guatemala,12345,67890,52688601,Mastercard,Crédito,Standard,,,MDES,,Sponsor,Interno&#10;Guatemala,12345,67890,5268860100,Mastercard,Crédito,Gold,Mi Cliente,MDES,,,Sponsor,Externo" class="form-textarea"></textarea>
+            </div>
+            <div class="inline-style-30">
+              <button id="bulkImportBtn" class="btn btn-primary">📥 Importar</button>
+            </div>
+            <div id="bulkResult" class="inline-style-31"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== Users Page (Admin) ===== -->
+      <div id="pageUsers" data-role="admin" class="page hidden inline-style-1">
+        <div class="page-header">
+          <div>
+            <h2 class="page-title">Gestión de Usuarios</h2>
+            <p class="page-subtitle">Administra los accesos al sistema</p>
+          </div>
+          <div class="page-actions">
+            <button id="addUserBtn" class="btn btn-primary">➕ Nuevo Usuario</button>
+          </div>
+        </div>
+        <div class="page-body">
+          <div id="usersGrid" class="users-grid"></div>
+        </div>
+      </div>
+
+      <!-- ===== Audit Log Page (Admin) ===== -->
+      <div id="pageAudit" data-role="admin" class="page hidden inline-style-1">
+        <div class="page-header">
+          <div>
+            <h2 class="page-title">Bitácora de Cambios</h2>
+            <p class="page-subtitle">Historial completo de acciones</p>
+          </div>
+        </div>
+        <div class="page-body">
+          <div class="filters-bar">
+            <select id="filterAuditAction" title="iltro de  udit ction" class="filter-select">
+              <option value="">Todas las acciones</option>
+              <option value="CREATE">Crear</option>
+              <option value="UPDATE">Editar</option>
+              <option value="DELETE">Eliminar</option>
+              <option value="ASSIGN">Asignar</option>
+              <option value="RELEASE">Liberar</option>
+              <option value="SEGMENT">Segmentar</option>
+              <option value="BULK_IMPORT">Carga Masiva</option>
+              <option value="REQUEST_CREATE">Solicitud</option>
+              <option value="REQUEST_APPROVE">Aprobación</option>
+              <option value="REQUEST_REJECT">Rechazo</option>
+            </select>
+            <input title="filter udit rom" type="date" id="filterAuditFrom" class="form-input inline-style-32">
+            <input title="filter udit o" type="date" id="filterAuditTo" class="form-input inline-style-32">
+            <button id="filterAuditBtn" class="btn btn-secondary btn-sm">🔍 Filtrar</button>
+          </div>
+          <div class="table-container">
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Usuario</th>
+                    <th>Acción</th>
+                    <th>Tabla</th>
+                    <th>Campo</th>
+                    <th>Valor Anterior</th>
+                    <th>Valor Nuevo</th>
+                    <th>Detalles</th><th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="auditBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+      <div id="binModal" class="modal-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="binModalTitle" class="modal-title">Nuevo BIN</h3>
+        <button onclick="closeModal('binModal')" class="modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="binForm" class="form-grid">
+          <input title="bin d" type="hidden" id="binId">
+          <div class="form-group"><label for="binCountry" class="form-label">País</label>
+            <div class="inline-style-18">
+              <select id="binCountry" title="bin ountry" class="form-select inline-style-19">
+                <option value="">Seleccionar...</option>
+                <!-- Populated dynamically -->
+              </select>
+              <button type="button" id="addCountryBtn" title="Agregar país" class="btn btn-secondary btn-sm">＋</button>
+            </div>
+          </div>
+          <div class="form-group"><label for="binIca" class="form-label">ICA</label><input title="bin ca" type="text" id="binIca" placeholder="Ej: 12345" class="form-input"></div>
+          <div class="form-group"><label for="binIcaQmr" class="form-label">ICA QMR</label><input title="bin ca mr" type="text" id="binIcaQmr" placeholder="Ej: 67890" class="form-input"></div>
+          <div class="form-group"><label for="binNumber" class="form-label">BIN * (8 dígitos)</label><input title="bin umber" type="text" id="binNumber" placeholder="Ej: 52688601" required maxlength="10" pattern="[0-9]{6,10}" class="form-input"></div>
+          <div class="form-group"><label for="binBrand" class="form-label">Marca</label><select id="binBrand" title="bin rand" class="form-select">
+              <option value="">Seleccionar...</option>
+              <option value="Visa">Visa</option>
+              <option value="Mastercard">Mastercard</option>
+            </select></div>
+          <div class="form-group"><label for="binProduct" class="form-label">Producto</label><select id="binProduct" title="bin roduct" class="form-select">
+              <option value="">Seleccionar...</option>
+              <option value="Prepago">Prepago</option>
+              <option value="Débito">Débito</option>
+              <option value="Crédito">Crédito</option>
+            </select></div>
+          <div class="form-group"><label for="binSegment" class="form-label">Segmento</label><select id="binSegment" title="bin segment" class="form-select">
+              <option value="">Primero seleccione Producto...</option>
+            </select></div>
+          <div class="form-group"><label for="binClient" class="form-label">Cliente</label><input title="bin lient" type="text" id="binClient" placeholder="Nombre del cliente" class="form-input"></div>
+          <div class="form-group"><label for="binBilleteras" class="form-label">Billeteras</label><select id="binBilleteras" title="binBilleteras" class="form-select">
+              <option value="">Seleccionar...</option>
+              <option value="No aplica" selected>No aplica</option>
+              <option value="Apple propia">Apple propia</option>
+              <option value="Google propia">Google propia</option>
+              <option value="Apple Volcán">Apple Volcán</option>
+              <option value="Google Volcán">Google Volcán</option>
+              <option value="Ambas propias">Ambas propias</option>
+              <option value="Ambas Volcán">Ambas Volcán</option>
+            </select></div>
+          <div class="form-group"><label for="binKeys" class="form-label">Llaves</label><select id="binKeys" title="bin eys" class="form-select">
+              <option value="">Seleccionar...</option>
+              <option value="Interna">Interna</option>
+              <option value="Externa">Externa</option>
+            </select></div>
+          <div class="form-group">
+            <label for="binEmbosser" class="form-label">Embozador</label>
+            <div class="inline-style-18">
+              <select id="binEmbosser" title="bin mbosser" class="form-select inline-style-19">
+                <option value="">Seleccionar...</option>
+                <!-- Populated dynamically -->
+              </select>
+              <button type="button" id="addEmbosserBtn" title="Agregar embozador" class="btn btn-secondary btn-sm">＋</button>
+            </div>
+          </div>
+          <div class="form-group"><label for="binType" class="form-label">Tipo de BIN</label><select id="binType" title="bin ype" class="form-select">
+              <option value="">Seleccionar...</option>
+              <option value="Sponsor">Sponsor</option>
+              <option value="Miembro Principal">Miembro Principal</option>
+            </select></div>
+          <div class="form-group"><label for="binBalanceType" class="form-label">Tipo de Saldos</label><select id="binBalanceType" title="bin alance ype" class="form-select">
+              <option value="">Seleccionar...</option>
+              <option value="Interno">Interno</option>
+              <option value="Externo">Externo</option>
+            </select></div>
+          <div id="binTokenizadoGroup" class="form-group"><label for="binTokenizado" class="form-label">¿BIN Tokenizado?</label><select id="binTokenizado" title="bin okenizado" class="form-select">
+              <option value="No">No (segmentable, uso compartido)</option>
+              <option value="Sí">Sí (exclusivo, 8 dígitos, sin segmentar)</option>
+            </select></div>
+          <div class="form-group"><label for="binStatus" class="form-label">Estado</label><select id="binStatus" title="bin tatus" class="form-select">
+              <option value="available">Disponible</option>
+              <option value="assigned">Asignado</option>
+              <option value="on_hold">En Espera</option>
+            </select></div>
+          <div class="form-group full-width"><label for="binNotes" class="form-label">Notas</label><textarea id="binNotes" placeholder="Notas adicionales..." class="form-textarea"></textarea></div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button onclick="closeModal('binModal')" class="btn btn-secondary">Cancelar</button>
+        <button id="binSaveBtn" class="btn btn-primary">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Segment Modal ===== -->
+  <div id="segmentModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm hidden">
+    <div class="bg-surface rounded-2xl shadow-2xl w-full max-w-md p-6 relative">
+      <div class="flex justify-between items-center mb-6">
+          <h3 class="text-xl font-bold">Segmentar BIN</h3>
+          <button onclick="closeModal('segmentModal')" class="text-content-muted hover:text-content-secondary text-lg">✕</button>
+      </div>
+      
+      <div class="space-y-4 mb-6">
+        <div>
+            <label class="block text-xs font-bold text-content-muted dark:text-content-muted uppercase tracking-wider mb-2">
+                BIN Padre (8 dígitos)
+            </label>
+            <input type="text" id="segParentBin" placeholder="Ej: 52688601" maxlength="9" 
+                   class="w-full px-4 py-2.5 bg-canvas border border-divider rounded-lg focus:bg-surface focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 transition-colors shadow-sm font-mono placeholder:font-sans">
+        </div>
+        <div>
+            <label class="block text-xs font-bold text-content-muted dark:text-content-muted uppercase tracking-wider mb-2">
+                Tipo de Segmento
+            </label>
+            <select id="segTargetLength" title="Tipo de Segmentación" class="w-full px-4 py-2.5 bg-canvas border border-divider rounded-lg focus:bg-surface focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 transition-colors shadow-sm font-sans">
+              <option value="10">10 dígitos (100 segmentos)</option>
+              <option value="9">9 dígitos (10 segmentos)</option>
+            </select>
+        </div>
+        <div>
+            <label class="block text-xs font-bold text-content-muted dark:text-content-muted uppercase tracking-wider mb-2">
+                Embozador
+            </label>
+            <select id="segEmbosser" title="Embozador" class="w-full px-4 py-2.5 bg-canvas border border-divider rounded-lg focus:bg-surface focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 transition-colors shadow-sm font-sans">
+              <option value="">(No definido)</option>
+              <!-- Populated dynamically from /api/embossers -->
+            </select>
+        </div>
+        <p class="text-xs text-content-muted dark:text-content-muted">El BIN padre debe existir y estar en estado Disponible.</p>
+      </div>
+
+      <div class="flex justify-end gap-3 border-t border-divider pt-5">
+        <button onclick="closeModal('segmentModal')" class="px-4 py-2 text-content-secondary hover:bg-surface-hover dark:bg-slate-800/40 rounded-lg font-medium transition-colors">Cancelar</button>
+        <button id="segCreateBtn" class="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/30">🔀 Crear Segmentos</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Segments View Modal ===== -->
+  <div id="segmentsModal" class="modal-overlay">
+    <div class="modal inline-style-35">
+      <div class="modal-header">
+        <h3 id="segmentsTitle" class="modal-title">Segmentos del BIN</h3>
+        <button onclick="closeModal('segmentsModal')" class="modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>BIN</th>
+                <th>Estado</th>
+                <th>Cliente</th>
+                <th>Billeteras</th>
+                <th>Producto</th>
+              </tr>
+            </thead>
+            <tbody id="segmentsBody"></tbody>
+          </table>
+        </div>
+        <div id="segmentsEmpty" class="empty-state hidden">
+          <div class="icon">📋</div>
+          <h3>Sin segmentos</h3>
+          <p>Este BIN no tiene segmentos registrados.</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button onclick="closeModal('segmentsModal')" class="btn btn-secondary">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== User Modal ===== -->
+  <div id="userModal" class="modal-overlay">
+    <div class="modal inline-style-36">
+      <div class="modal-header">
+        <h3 id="userModalTitle" class="modal-title">Nuevo Usuario</h3>
+        <button onclick="closeModal('userModal')" class="modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="userForm" class="form-grid inline-style-37">
+          <input title="user d" type="hidden" id="userId">
+          <div class="form-group"><label for="userUsername" class="form-label">Usuario *</label><input title="user sername" type="text" id="userUsername" placeholder="Nombre de usuario" required class="form-input"></div>
+          <div class="form-group"><label for="userFullName" class="form-label">Nombre Completo</label><input title="user ull ame" type="text" id="userFullName" placeholder="Nombre completo" class="form-input"></div>
+          <div class="form-group"><label for="userPassword" class="form-label">Contraseña *</label><input title="user assword" type="password" id="userPassword" placeholder="Mínimo 6 caracteres" required minlength="6" class="form-input"></div>
+          <div class="form-group">
+            <label for="userRoleSelect" class="form-label">Rol</label>
+            <select id="userRoleSelect" title="Rol del Usuario" class="form-select">
+              <option value="viewer">Viewer (solo lectura)</option>
+              <option value="requester">Solicitante</option>
+              <option value="admin">Admin (lectura y escritura)</option>
+            </select>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button onclick="closeModal('userModal')" class="btn btn-secondary">Cancelar</button>
+        <button id="userSaveBtn" class="btn btn-primary">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Confirm Modal ===== -->
+  <div id="confirmModal" class="modal-overlay">
+    <div class="modal inline-style-38">
+      <div class="modal-header">
+        <h3 id="confirmTitle" class="modal-title">Confirmar</h3>
+        <button onclick="closeModal('confirmModal')" class="modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="confirmMessage" class="confirm-message"></div>
+      </div>
+      <div class="modal-footer">
+        <button onclick="closeModal('confirmModal')" class="btn btn-secondary">Cancelar</button>
+        <button id="confirmBtn" class="btn btn-danger">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js?v=4"></script>
+</body>
+
+</html>
