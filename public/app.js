@@ -1753,6 +1753,7 @@ async function editUser(id) {
         document.getElementById('userUsername').value = user.username;
         document.getElementById('userUsername').disabled = true;
         document.getElementById('userFullName').value = user.full_name || '';
+        document.getElementById('userEmail').value = user.email || '';
         document.getElementById('userPassword').value = '';
         document.getElementById('userPassword').required = false;
         document.getElementById('userRoleSelect').value = user.role;
@@ -1765,6 +1766,7 @@ async function saveUser() {
     const data = {
         username: document.getElementById('userUsername').value,
         full_name: document.getElementById('userFullName').value,
+        email: document.getElementById('userEmail').value,
         password: document.getElementById('userPassword').value,
         role: document.getElementById('userRoleSelect').value
     };

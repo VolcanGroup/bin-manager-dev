@@ -1,7 +1,7 @@
 const express = require('express');
 const { queryAll, queryOne, runQuery, logAudit } = require('../db_connector');
 const { authenticateToken, requireAdmin, requireRequester } = require('../middleware/auth');
-const { sendNewRequestEmail } = require('../emailService');
+const { sendNewRequestEmail, sendApprovalEmail, sendRejectionEmail } = require('../emailService');
 
 const router = express.Router();
 
@@ -328,6 +328,11 @@ router.put('/:id/approve', authenticateToken, requireAdmin, async (req, res) => 
             `BIN ${request.proposed_bin} aprobado para ${request.client}`);
 
         const updated = await queryOne('SELECT * FROM requests WHERE id = ?', [parseInt(req.params.id)]);
+        
+        // Notify requester asynchronously
+        const requester = await queryOne('SELECT email, full_name FROM users WHERE id = ?', [request.requester_id]);
+        sendApprovalEmail(updated, requester?.email, requester?.full_name).catch(e => console.error("Approval email failed:", e));
+
         res.json(updated);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -400,6 +405,11 @@ router.put('/:id/reject', authenticateToken, requireAdmin, async (req, res) => {
             `BIN ${request.proposed_bin} rechazado para ${request.client}`);
 
         const updated = await queryOne('SELECT * FROM requests WHERE id = ?', [parseInt(req.params.id)]);
+        
+        // Notify requester asynchronously
+        const requester = await queryOne('SELECT email, full_name FROM users WHERE id = ?', [request.requester_id]);
+        sendRejectionEmail(updated, requester?.email, requester?.full_name).catch(e => console.error("Rejection email failed:", e));
+
         res.json({ ...updated, can_unsegment, parent_bin_id });
     } catch (err) {
         res.status(500).json({ error: err.message });

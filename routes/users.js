@@ -8,7 +8,7 @@ const router = express.Router();
 // GET /api/users
 router.get('/', authenticateToken, requireAdmin, async (req, res) => {
     try {
-        const users = await queryAll('SELECT id, username, full_name, role, created_at FROM users ORDER BY created_at ASC');
+        const users = await queryAll('SELECT id, username, full_name, email, role, created_at FROM users ORDER BY created_at ASC');
         res.json(users);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -18,7 +18,7 @@ router.get('/', authenticateToken, requireAdmin, async (req, res) => {
 // POST /api/users
 router.post('/', authenticateToken, requireAdmin, async (req, res) => {
     try {
-        let { username, password, full_name, role } = req.body;
+        let { username, password, full_name, email, role } = req.body;
         if (!username || !password) return res.status(400).json({ error: 'Usuario y contraseña son requeridos' });
         username = username.trim().toLowerCase();
         if (password.length < 6) return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
@@ -28,12 +28,12 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
 
         const hash = bcrypt.hashSync(password, 10);
         const validRole = ['admin', 'viewer', 'requester'].includes(role) ? role : 'viewer';
-        const result = await runQuery('INSERT INTO users (username, password_hash, full_name, role) VALUES (?, ?, ?, ?)',
-            [username, hash, full_name || username, validRole]);
+        const result = await runQuery('INSERT INTO users (username, password_hash, full_name, email, role) VALUES (?, ?, ?, ?, ?)',
+            [username, hash, full_name || username, email || null, validRole]);
 
         await logAudit(req.user.id, req.user.username, 'CREATE', 'users', result.lastInsertRowid, null, null, username, `Usuario creado con rol ${validRole}`);
 
-        res.status(201).json({ id: result.lastInsertRowid, username, full_name: full_name || username, role: validRole });
+        res.status(201).json({ id: result.lastInsertRowid, username, full_name: full_name || username, email: email || null, role: validRole });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -45,7 +45,7 @@ router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
         const user = await queryOne('SELECT * FROM users WHERE id = ?', [parseInt(req.params.id)]);
         if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
 
-        const { full_name, role, password } = req.body;
+        const { full_name, email, role, password } = req.body;
 
         if (password) {
             if (password.length < 6) return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
@@ -54,16 +54,16 @@ router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
             await logAudit(req.user.id, req.user.username, 'UPDATE', 'users', user.id, 'password', '***', '***', 'Contraseña actualizada');
         }
 
-        if (full_name || role) {
+        if (full_name !== undefined || email !== undefined || role) {
             const validRole = role && ['admin', 'viewer', 'requester'].includes(role) ? role : user.role;
             if (role && role !== user.role) {
                 await logAudit(req.user.id, req.user.username, 'UPDATE', 'users', user.id, 'role', user.role, validRole, null);
             }
-            await runQuery('UPDATE users SET full_name = ?, role = ?, updated_at = datetime("now", "localtime") WHERE id = ?',
-                [full_name || user.full_name, validRole, parseInt(req.params.id)]);
+            await runQuery('UPDATE users SET full_name = ?, email = ?, role = ?, updated_at = datetime("now", "localtime") WHERE id = ?',
+                [full_name !== undefined ? full_name : user.full_name, email !== undefined ? email : user.email, validRole, parseInt(req.params.id)]);
         }
 
-        const updated = await queryOne('SELECT id, username, full_name, role, created_at FROM users WHERE id = ?', [parseInt(req.params.id)]);
+        const updated = await queryOne('SELECT id, username, full_name, email, role, created_at FROM users WHERE id = ?', [parseInt(req.params.id)]);
         res.json(updated);
     } catch (err) {
         res.status(500).json({ error: err.message });
