@@ -54,6 +54,22 @@ En Render.com, configura las siguientes variables:
 ### 2. Base de Datos
 Al conectar por primera vez a una base de datos PostgreSQL vacía, la aplicación ejecutará automáticamente el script de inicialización para crear las tablas y el usuario administrador inicial.
 
+## Integración de Correos Electrónicos (Notificaciones)
+
+La plataforma envía correos automáticos usando **Nodemailer** y un servidor SMTP. 
+
+### Variables de Entorno Requeridas
+Para habilitar el envío de correos, configura las siguientes variables en tu `.env` o servidor de producción:
+- `SMTP_HOST`: Servidor SMTP (ej: `smtp.office365.com` o `smtp.gmail.com`).
+- `SMTP_PORT`: Puerto del servidor (ej: `587` o `465`).
+- `SMTP_SECURE`: `true` para puerto 465, o `false` para 587 (TLS).
+- `SMTP_USER`: Correo remitente autorizado.
+- `SMTP_PASS`: Contraseña o App Password del correo.
+
+### Lógica de Notificaciones
+- **Nuevas Solicitudes**: Se notifica a **todos** los usuarios con rol `admin` que tengan un correo registrado en la tabla `users` de la base de datos (se ignora cualquier correo quemado en el `.env`).
+- **Aprobación / Rechazo**: El sistema busca el correo del usuario "solicitante" (creador original del registro) en la tabla `users` y le notifica exclusivamente a él sobre la resolución de su solicitud.
+
 ## Tecnologías
 
 - **Backend**: Node.js, Express.js.
